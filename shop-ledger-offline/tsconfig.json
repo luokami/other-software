@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","lib":["dom","dom.iterable","esnext"],"strict":true,"skipLibCheck":true,"module":"esnext","moduleResolution":"bundler","jsx":"react-jsx","noEmit":true,"allowImportingTsExtensions":true,"esModuleInterop":true,"baseUrl":".","paths":{"@/*":["web/*"]},"types":["node"]},"include":["web/**/*.ts","web/**/*.tsx","tests/**/*.ts"]}
