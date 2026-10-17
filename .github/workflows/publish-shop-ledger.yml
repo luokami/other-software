@@ -1,0 +1,51 @@
+name: Publish shop ledger APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-shop-ledger.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-shop-ledger-v1.1.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download and verify the existing signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_file=xiaodian-ledger-offline-v1.1.0.apk
+          gh api "repos/$GH_REPO/contents/shop-ledger-offline/releases/$apk_file?ref=$GITHUB_SHA" --jq .content | base64 --decode > "$apk_file"
+          echo "9e937f132343422ba6727c4e5fb7c287e2a88fb08a8eb80bd38f7cd5384b0acb  $apk_file" | sha256sum --check
+      - name: Publish version 1.1.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'NOTES'
+          安卓 8.0 及以上可用的小店记账离线版。
+
+          - 分类记账、固定收入与额外收入、按日明细和分类汇总。
+          - 借款、部分还款与结清记录；借款不计入总收支。
+          - 搜索、常填项、回收站、五档字号与浅色/深色模式。
+          - 本机自动备份、JSON 备份恢复、CSV 导出和隐私锁。
+          - 页面资源内置，无需联网，无账号登录。
+
+          **安装**：下载下方 APK 附件后安装。
+          **迁移**：网页版导出完整备份 JSON，再在 App 的“设置 → 备份与恢复”中导入。
+
+          已通过编译、签名和本地存储逻辑检查，尚未真机实测。
+          APK 包版本为 1.1.0；CHANGELOG.md 中的版本为需求演进追溯编号。
+          NOTES
+          if gh release view v1.1.0 >/dev/null 2>&1; then
+            gh release upload v1.1.0 xiaodian-ledger-offline-v1.1.0.apk --clobber
+          else
+            gh release create v1.1.0 xiaodian-ledger-offline-v1.1.0.apk --target "$GITHUB_SHA" --title "小店记账离线版 v1.1.0" --notes-file release-notes.md
+          fi
