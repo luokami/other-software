@@ -35,13 +35,7 @@ jobs:
           profile: pixel_2
           working-directory: shop-ledger-native
           disable-animations: true
-          script: |
-            adb shell settings put secure show_ime_with_hard_keyboard 1
-            ledger_test_status=0
-            ./gradlew :app:connectedDebugAndroidTest --console=plain || ledger_test_status=$?
-            mkdir -p app/build/outputs/ui-screenshots
-            adb pull /sdcard/Android/data/cn.shopledger.offline/files/. app/build/outputs/ui-screenshots/ || true
-            exit "$ledger_test_status"
+          script: bash ci/android-check.sh
       - uses: actions/upload-artifact@v5
         if: always()
         with:

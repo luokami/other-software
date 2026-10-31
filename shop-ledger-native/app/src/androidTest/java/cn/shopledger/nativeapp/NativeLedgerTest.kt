@@ -72,6 +72,26 @@ class NativeLedgerTest {
         repository.initialize {error("Old web settings must never be read twice")}
         assertEquals(book,repository.state.value.book);repository.close();clean()
     }
+    @Test fun largeBookAndRecoveryUseSeparateCursorWindows(): Unit = runBlocking {
+        clean()
+        val book=Book(entries=(1..3000).map { Entry("large-$it","expense","蔬菜",100,today(),"青菜",note="迁移校验".repeat(20)) })
+        val json=BookCodec.bookJson(book).toString()
+        val backup=BookCodec.backupJson(Backup(book,DisplayPrefs()))
+        assertTrue("Fixture must exceed a combined 2 MiB cursor row",json.toByteArray().size+backup.toByteArray().size>2*1024*1024)
+        val file=context.getDatabasePath("ledger.db");file.parentFile!!.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { db->
+            db.execSQL("CREATE TABLE books(id INTEGER PRIMARY KEY,content TEXT,revision INTEGER,recovery TEXT)")
+            db.execSQL("INSERT INTO books VALUES(1,?,?,?)",arrayOf(json,75,backup))
+        }
+        val repository=LedgerRepository(context)
+        repository.initialize {LegacySettings()}
+        assertTrue(repository.state.value.loaded)
+        assertEquals(3000,repository.state.value.book.entries.size)
+        assertEquals(3000,BookCodec.parseBackup(repository.state.value.recovery).book.entries.size)
+        repository.restore(Backup(Book(),DisplayPrefs()),75)
+        assertEquals(3000,BookCodec.parseBackup(repository.state.value.recovery).book.entries.size)
+        repository.close();clean()
+    }
     @Test fun nativeRecordingLoansPrivacyAndKeyboardFlow() {
         clean()
         val scenario=ActivityScenario.launch(MainActivity::class.java)

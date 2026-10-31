@@ -29,7 +29,9 @@ const val GUIDE="ledger-first-use-guide-v1"
 val LEGACY_KEYS=listOf(THEME,FONT,PIN,THROTTLE,AUTO,LAST_BACKUP,GUIDE)
 
 @Entity(tableName="ledger_state")
-data class LedgerState(@PrimaryKey val id: Int=1,val json: String,val revision: Long,val recovery: String="",val legacyImported: Boolean=true)
+data class LedgerState(@PrimaryKey val id: Int=1,val json: String,val revision: Long,val legacyImported: Boolean=true)
+@Entity(tableName="recovery_state")
+data class RecoveryState(@PrimaryKey val id: Int=1,val json: String)
 @Entity(tableName="preferences")
 data class Preference(@PrimaryKey val key: String,val value: String)
 @Entity(tableName="snapshots")
@@ -38,6 +40,8 @@ data class Snapshot(@PrimaryKey val day: String,val hash: String,val json: Strin
 interface LedgerDao {
     @Query("SELECT * FROM ledger_state WHERE id=1") fun state(): LedgerState?
     @Insert(onConflict=OnConflictStrategy.REPLACE) fun putState(value: LedgerState)
+    @Query("SELECT * FROM recovery_state WHERE id=1") fun recovery(): RecoveryState?
+    @Insert(onConflict=OnConflictStrategy.REPLACE) fun putRecovery(value: RecoveryState)
     @Query("SELECT * FROM preferences") fun preferences(): List<Preference>
     @Insert(onConflict=OnConflictStrategy.REPLACE) fun putPreference(value: Preference)
     @Query("DELETE FROM preferences WHERE `key`=:key") fun removePreference(key: String)
@@ -45,7 +49,7 @@ interface LedgerDao {
     @Insert(onConflict=OnConflictStrategy.REPLACE) fun putSnapshot(value: Snapshot)
     @Query("DELETE FROM snapshots WHERE day=:day") fun removeSnapshot(day: String)
 }
-@Database(entities=[LedgerState::class,Preference::class,Snapshot::class],version=1,exportSchema=true)
+@Database(entities=[LedgerState::class,RecoveryState::class,Preference::class,Snapshot::class],version=1,exportSchema=true)
 abstract class LedgerDatabase: RoomDatabase() { abstract fun ledger(): LedgerDao }
 data class LedgerSnapshot(val book: Book=Book(),val revision: Long=0,val preferences: Map<String,String> = emptyMap(),val backups: List<Snapshot> = emptyList(),val recovery: String="",val loaded: Boolean=false,val failure: String="") {
     val display get() = DisplayPrefs(if(preferences[THEME]=="dark")"dark" else "light",preferences[FONT]?.takeIf { it in FONT_NAMES }?:"standard")
@@ -121,16 +125,20 @@ class LedgerRepository(private val context: Context,val database: LedgerDatabase
                     var book=Book();var revision=0L;var recovery=""
                     if(old.exists()) {
                         SQLiteDatabase.openDatabase(old.path,null,SQLiteDatabase.OPEN_READONLY).use { db ->
-                            db.rawQuery("SELECT content,revision,recovery FROM books WHERE id=1",null).use { cursor ->
-                                if(cursor.moveToFirst()) { book=BookCodec.parseBook(cursor.getString(0));revision=cursor.getLong(1);recovery=cursor.getString(2).orEmpty();if(recovery.isNotEmpty())BookCodec.parseBackup(recovery) }
+                            db.rawQuery("SELECT content,revision FROM books WHERE id=1",null).use { cursor ->
+                                if(cursor.moveToFirst()) { book=BookCodec.parseBook(cursor.getString(0));revision=cursor.getLong(1) }
                             }
+                            // Each legacy value fits one CursorWindow; both together may exceed it.
+                            db.rawQuery("SELECT recovery FROM books WHERE id=1",null).use { cursor ->if(cursor.moveToFirst())recovery=cursor.getString(0).orEmpty() }
+                            if(recovery.isNotEmpty())BookCodec.parseBackup(recovery)
                         }
                     }
                     val settings=if(old.exists())reader() else LegacySettings()
                     // The marker, book, PIN verifier and snapshots commit together or not at all.
                     database.runInTransaction {
                         check(dao.state()==null)
-                        dao.putState(LedgerState(json=BookCodec.bookJson(book).toString(),revision=revision,recovery=recovery))
+                        dao.putState(LedgerState(json=BookCodec.bookJson(book).toString(),revision=revision))
+                        if(recovery.isNotEmpty())dao.putRecovery(RecoveryState(json=recovery))
                         settings.preferences.forEach { (k,v)->dao.putPreference(Preference(k,v)) }
                         settings.backups.forEach { dao.putSnapshot(it) }
                     }
@@ -144,7 +152,7 @@ class LedgerRepository(private val context: Context,val database: LedgerDatabase
     }
     private fun refresh() {
         val s=dao.state() ?: error("本机账本未初始化")
-        mutable.value=LedgerSnapshot(BookCodec.parseBook(s.json),s.revision,dao.preferences().associate { it.key to it.value },dao.snapshots(),s.recovery,true)
+        mutable.value=LedgerSnapshot(BookCodec.parseBook(s.json),s.revision,dao.preferences().associate { it.key to it.value },dao.snapshots(),dao.recovery()?.json.orEmpty(),true)
     }
     private fun saveAutomatic(book: Book,prefs: Map<String,String>) {
         if(prefs[AUTO]!="true")return
@@ -183,7 +191,8 @@ class LedgerRepository(private val context: Context,val database: LedgerDatabase
                 require(old.revision==expectedRevision) { "账本已更新，请重新选择备份" }
                 val prefs=dao.preferences().associate { it.key to it.value }
                 val recovery=BookCodec.backupJson(Backup(BookCodec.parseBook(old.json),mutable.value.display))
-                dao.putState(old.copy(json=BookCodec.bookJson(checked.book).toString(),revision=old.revision+1,recovery=recovery))
+                dao.putState(old.copy(json=BookCodec.bookJson(checked.book).toString(),revision=old.revision+1))
+                dao.putRecovery(RecoveryState(json=recovery))
                 dao.putPreference(Preference(THEME,checked.preferences.theme));dao.putPreference(Preference(FONT,checked.preferences.fontSize))
                 saveAutomatic(checked.book,prefs+mapOf(THEME to checked.preferences.theme,FONT to checked.preferences.fontSize))
             };refresh()
