@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build the local-only React UI into a signed Android APK."""
-import os,pathlib,re,subprocess,zipfile,shutil,urllib.request,secrets
+import os,pathlib,re,subprocess,zipfile,shutil,urllib.request,secrets,json
 ROOT=pathlib.Path(__file__).resolve().parent
 os.chdir(ROOT)
 BUILD=ROOT/'build';BUILD.mkdir(exist_ok=True)
@@ -45,7 +45,8 @@ password_file=signing/'password.txt';key=signing/'shop-ledger.p12'
 if not password_file.exists():password_file.write_text(secrets.token_urlsafe(32));password_file.chmod(0o600)
 os.environ['SHOP_LEDGER_SIGNING_PASSWORD']=password_file.read_text().strip()
 if not key.exists():run('keytool','-genkeypair','-keystore',key,'-storetype','PKCS12','-storepass:env','SHOP_LEDGER_SIGNING_PASSWORD','-alias','shop-ledger','-keyalg','RSA','-keysize','3072','-validity','10950','-dname','CN=Shop Ledger, OU=Personal App, O=Shop Ledger')
-apk=BUILD/'xiaodian-ledger-offline-v1.1.0.apk'
+version=json.loads((ROOT/'package.json').read_text())['version']
+apk=BUILD/f'xiaodian-ledger-offline-v{version}.apk'
 run(bt/'apksigner','sign','--ks',key,'--ks-key-alias','shop-ledger','--ks-pass','env:SHOP_LEDGER_SIGNING_PASSWORD','--out',apk,BUILD/'aligned.apk')
 run(bt/'apksigner','verify','--verbose',apk)
 run(bt/'zipalign','-c','-p','4',apk)

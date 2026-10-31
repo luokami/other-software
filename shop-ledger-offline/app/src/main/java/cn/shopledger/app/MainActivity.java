@@ -42,12 +42,27 @@ public class MainActivity extends Activity {
  }
  @Override public void onCreate(Bundle saved){
   super.onCreate(saved);getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);db=new LedgerDB();
-  web=new WebView(this);setContentView(web);WebView.setWebContentsDebuggingEnabled(false);
-  web.setOnApplyWindowInsetsListener((view,insets)->{
-   if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());view.setPadding(bars.left,bars.top,bars.right,bars.bottom);}
-   else view.setPadding(insets.getStableInsetLeft(),insets.getStableInsetTop(),insets.getStableInsetRight(),insets.getStableInsetBottom());
-   return insets;
-  });
+  // Inset the WebView's actual bounds, rather than its internal content padding.
+  // This also protects fixed HTML headers, dialogs and navigation on Android 15+.
+  android.widget.FrameLayout safeArea=new android.widget.FrameLayout(this);
+  safeArea.setBackgroundColor(android.graphics.Color.rgb(244,246,250));
+  web=new WebView(this);WebView.setWebContentsDebuggingEnabled(false);
+  safeArea.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));
+  if(android.os.Build.VERSION.SDK_INT>=30){
+   getWindow().setDecorFitsSystemWindows(false);
+   safeArea.setOnApplyWindowInsetsListener((view,insets)->{
+    int safeTypes=android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout();
+    android.graphics.Insets bars=insets.getInsetsIgnoringVisibility(safeTypes);
+    int keyboard=insets.getInsets(android.view.WindowInsets.Type.ime()).bottom;
+    view.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,keyboard));
+    // These areas are already outside the child viewport; do not apply them twice.
+    return new android.view.WindowInsets.Builder(insets)
+     .setInsets(safeTypes|android.view.WindowInsets.Type.ime(),android.graphics.Insets.NONE)
+     .setInsetsIgnoringVisibility(safeTypes,android.graphics.Insets.NONE)
+     .setDisplayCutout(null).build();
+   });
+  }else safeArea.setFitsSystemWindows(true);
+  setContentView(safeArea);safeArea.post(()->safeArea.requestApplyInsets());
   WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setAllowFileAccessFromFileURLs(false);settings.setAllowUniversalAccessFromFileURLs(false);settings.setBlockNetworkLoads(true);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return true;}
