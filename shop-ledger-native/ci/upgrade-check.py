@@ -44,7 +44,9 @@ adb('shell','chown',f'{uid}:{uid}',f'{BASE}/databases/ledger.db')
 adb('shell','restorecon','-R',f'{BASE}/databases')
 result=adb('install','-r',str(ROOT/'releases/xiaodian-ledger-native-v1.3.0.apk'))
 assert 'Success' in result,result
-adb('shell','am','start','-W','-n',f'{PKG}/cn.shopledger.nativeapp.MainActivity')
+launcher=adb('shell','cmd','package','resolve-activity','--brief','-a','android.intent.action.MAIN','-c','android.intent.category.LAUNCHER',PKG)
+assert 'cn.shopledger.app.MainActivity' in launcher,launcher
+adb('shell','am','start','-W','-n',f'{PKG}/cn.shopledger.app.MainActivity')
 for _ in range(40):
     try:
         native=pull_database('ledger-native.db')

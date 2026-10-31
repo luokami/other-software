@@ -4,38 +4,18 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/publish-shop-ledger.yml'
+      - 'shop-ledger-native/releases/**'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: publish-shop-ledger-v1.2.0
+  group: publish-shop-ledger-v1.3.0
   cancel-in-progress: false
 jobs:
-  test-ui:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: shop-ledger-offline
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-      - run: npm ci --no-audit --no-fund
-      - run: npm run check
-      - run: npm test
-      - run: npm run build:web
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:ui
-      - uses: actions/upload-artifact@v5
-        if: always()
-        with:
-          name: shop-ledger-guide-layouts
-          path: shop-ledger-offline/build/guide-*.png
-          if-no-files-found: ignore
+  verify-native:
+    uses: ./.github/workflows/native-ledger-check.yml
   publish:
-    needs: test-ui
+    needs: verify-native
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -44,20 +24,23 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Download and verify the existing signed APK
+      - uses: actions/checkout@v6
+      - name: Verify signed release package
         shell: bash
         run: |
           set -euo pipefail
-          apk_file=xiaodian-ledger-offline-v1.2.0.apk
-          gh api "repos/$GH_REPO/contents/shop-ledger-offline/releases/$apk_file?ref=$GITHUB_SHA" --jq .content | base64 --decode > "$apk_file"
-          echo "39594270a7a9d3609bb516e50352101fc239317e96c38338d8a0f02492c7ec82  $apk_file" | sha256sum --check
-      - name: Publish version 1.2.0
+          cd shop-ledger-native/releases
+          sha256sum --check SHA256SUMS
+          ledger_signer="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$ledger_signer" verify --print-certs xiaodian-ledger-native-v1.3.0.apk | tee certificate.txt
+          grep -q 'ece9f040e9b02b61cfa1b891d5ce0c101bd25d2138bc130126b7b6bd0b3874c5' certificate.txt
+      - name: Publish version 1.3.0
         shell: bash
         run: |
           set -euo pipefail
-          gh api "repos/$GH_REPO/contents/shop-ledger-offline/releases/v1.2.0.md?ref=$GITHUB_SHA" --jq .content | base64 --decode > release-notes.md
-          if gh release view v1.2.0 >/dev/null 2>&1; then
-            gh release upload v1.2.0 xiaodian-ledger-offline-v1.2.0.apk --clobber
+          apk_file=shop-ledger-native/releases/xiaodian-ledger-native-v1.3.0.apk
+          if gh release view v1.3.0 >/dev/null 2>&1; then
+            gh release upload v1.3.0 "$apk_file" shop-ledger-native/releases/SHA256SUMS --clobber
           else
-            gh release create v1.2.0 xiaodian-ledger-offline-v1.2.0.apk --target "$GITHUB_SHA" --title "小店账本新版 v1.2.0" --notes-file release-notes.md
+            gh release create v1.3.0 "$apk_file" shop-ledger-native/releases/SHA256SUMS --target "$GITHUB_SHA" --title "小店账本原生版 v1.3.0" --notes-file shop-ledger-native/releases/v1.3.0.md
           fi

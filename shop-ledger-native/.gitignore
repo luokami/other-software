@@ -5,3 +5,7 @@ signing/
 *.p12
 *.jks
 password.txt
+
+.kotlin/
+__pycache__/
+*.pyc
