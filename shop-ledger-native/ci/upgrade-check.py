@@ -20,7 +20,8 @@ def pull_database(name):
     return target
 
 # A debuggable instrumentation build must not mask a signing mismatch.
-adb('uninstall',PKG)
+try:adb('uninstall',PKG)
+except subprocess.CalledProcessError:pass
 adb('install',str(ROOT.parent/'shop-ledger-offline/releases/xiaodian-ledger-offline-v1.2.0.apk'))
 adb('shell','am','start','-W','-n',f'{PKG}/cn.shopledger.app.MainActivity')
 time.sleep(3)

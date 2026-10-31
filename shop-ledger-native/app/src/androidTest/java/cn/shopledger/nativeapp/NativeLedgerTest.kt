@@ -74,7 +74,7 @@ class NativeLedgerTest {
     }
     @Test fun largeBookAndRecoveryUseSeparateCursorWindows(): Unit = runBlocking {
         clean()
-        val book=Book(entries=(1..3000).map { Entry("large-$it","expense","蔬菜",100,today(),note="迁移校验".repeat(20)) })
+        val book=Book(entries=(1..3000).map { Entry("large-$it","expense","蔬菜",100,today(),note="迁移校验".repeat(22)) })
         val json=BookCodec.bookJson(book).toString()
         val backup=BookCodec.backupJson(Backup(book,DisplayPrefs()))
         assertTrue("Fixture must exceed a combined 2 MiB cursor row",json.toByteArray().size+backup.toByteArray().size>2*1024*1024)
