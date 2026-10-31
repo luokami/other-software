@@ -1,0 +1,31 @@
+name: Native ledger checks
+on:
+  push:
+    branches: [native-migration]
+    paths: ['shop-ledger-native/**', '.github/workflows/native-ledger-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: shop-ledger-native
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile and test native ledger
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: native-ledger-checks
+          path: |
+            shop-ledger-native/app/build/reports/tests/
+            shop-ledger-native/app/build/outputs/apk/debug/*.apk
+            shop-ledger-native/app/build/compat-backup.json
