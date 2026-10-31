@@ -57,7 +57,7 @@ object LegacyPreferences {
     suspend fun read(context: Context): LegacySettings = withContext(Dispatchers.Main) {
         var view: WebView?=null
         try {
-            val raw=withTimeout(15000) {
+            val raw=withTimeout(30000) {
                 suspendCancellableCoroutine<String> { continuation ->
                     val bridge=object {
                         @JavascriptInterface fun deliver(value: String) {

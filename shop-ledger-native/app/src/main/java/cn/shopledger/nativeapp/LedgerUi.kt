@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,6 +72,7 @@ private val appLabels=listOf("首页","借款","记账汇总","收支明细","�
                 if(result==SnackbarResult.ActionPerformed)notice.undo?.let { model.apply(it,"已恢复") }
             } }
             val screen=if(model.locked && model.pinEnabled)Screen.HOME else model.screen
+            val screens=rememberSaveableStateHolder()
             BackHandler(enabled=model.tutorial || model.form!=null || model.confirm!=null || model.restorePreview!=null || model.pinMode!=null || screen!=Screen.HOME) {
                 when { model.pinMode!=null->model.cancelPin();model.tutorial->model.finishGuide();model.form!=null->{if(!model.busy)model.form=null};model.confirm!=null->{if(!model.busy)model.confirm=null};model.restorePreview!=null->{if(!model.busy)model.cancelRestore()};screen in listOf(Screen.BACKUP,Screen.EXPORT,Screen.TRASH,Screen.REMINDERS)->model.navigate(Screen.SETTINGS);else->model.navigate(Screen.HOME) }
             }
@@ -99,7 +101,7 @@ private val appLabels=listOf("首页","借款","记账汇总","收支明细","�
                             Column(Modifier.weight(1f)) { Text(screen.title,fontSize=23.sp,fontWeight=FontWeight.Bold);if(screen==Screen.HOME)Text(snapshot.book.name,fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant) }
                             if(model.pinEnabled)OutlinedButton(onClick={if(model.locked)model.protect {} else model.lockNow()},contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Icon(Icons.Default.Lock,null,Modifier.size(14.dp));Text(if(model.locked)"解锁" else "锁定",fontSize=12.sp) }
                         }
-                        when(screen) {
+                        screens.SaveableStateProvider(screen.name) { when(screen) {
                             Screen.HOME->HomePage(model)
                             Screen.LOANS->LoansPage(model)
                             Screen.SUMMARY->SummaryPage(model)
@@ -109,7 +111,7 @@ private val appLabels=listOf("首页","借款","记账汇总","收支明细","�
                             Screen.EXPORT->ExportPage(model)
                             Screen.TRASH->TrashPage(model)
                             Screen.REMINDERS->RemindersPage(model)
-                        }
+                        } }
                     }
                 }
             }

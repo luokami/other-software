@@ -56,6 +56,8 @@ class LedgerDataTest {
     @Test fun legacyPinVerifierMatchesWebCryptoFixture() {
         val pin="123456";val value=Privacy.create(pin)
         assertTrue(Privacy.verify(pin,value));assertFalse(Privacy.verify("000000",value));assertFalse(Privacy.verify("12345",value))
+        val legacy="""{"version":1,"salt":"000102030405060708090a0b0c0d0e0f","verifier":"56e0f12982d8214698f473a77b69d38525948dfc7fefe58a8594e0447a4f8eea","iterations":200000}"""
+        assertTrue(Privacy.verify("123456",legacy));assertFalse(Privacy.verify("000000",legacy))
         assertTrue(runCatching {Privacy.parse("{}")}.isFailure)
     }
     @Test fun migrationIsAtomicAndDoesNotReimportStaleLegacyDatabase(): Unit = runBlocking {

@@ -15,11 +15,14 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import java.time.Instant
 import kotlin.math.roundToInt
 
@@ -80,23 +83,23 @@ import kotlin.math.roundToInt
 @Composable internal fun SettingsPage(model: LedgerModel) {
     val state=model.snapshot;val prefs=state.preferences
     var font by remember(state.display.fontSize) {mutableStateOf(FONT_NAMES.indexOf(state.display.fontSize).coerceAtLeast(0).toFloat())}
-    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=12.dp)) {
+    LazyColumn(modifier=Modifier.testTag("settings-list"),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=12.dp)) {
         item {Section("字号与显示")}
         item {Panel {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("字号");Text(FONT_LABELS[font.roundToInt()],color=MaterialTheme.colorScheme.primary)}
-            Slider(value=font,onValueChange={font=it.roundToInt().toFloat()},onValueChangeFinished={model.preference(FONT,FONT_NAMES[font.roundToInt()])},valueRange=0f..4f,steps=3,modifier=Modifier.fillMaxWidth())
+            Slider(value=font,onValueChange={font=it.roundToInt().toFloat()},onValueChangeFinished={model.preference(FONT,FONT_NAMES[font.roundToInt()])},valueRange=0f..4f,steps=3,modifier=Modifier.fillMaxWidth().semantics {contentDescription="调节字体大小"})
             Row {FONT_LABELS.forEachIndexed { i,name->TextButton(onClick={font=i.toFloat();model.preference(FONT,FONT_NAMES[i])},modifier=Modifier.weight(1f),contentPadding=PaddingValues(1.dp)) {Text(name,fontSize=12.sp,maxLines=1)} }}
             ChoiceRow(listOf("light" to "浅色","dark" to "深色"),state.display.theme,{model.preference(THEME,it)})
         } }
         item {Section("数据安全")}
         item {Panel {
-            SettingRow(Icons.Default.Backup,"自动备份",trailing={Switch(checked=prefs[AUTO]=="true",onCheckedChange={model.preference(AUTO,it.toString())},enabled=!model.busy)})
+            SettingRow(Icons.Default.Backup,"自动备份",trailing={Switch(checked=prefs[AUTO]=="true",onCheckedChange={model.preference(AUTO,it.toString())},enabled=!model.busy,modifier=Modifier.semantics {contentDescription="自动备份"})})
             HorizontalDivider();SettingRow(Icons.Default.Folder,"备份与恢复",if(prefs[LAST_BACKUP].isNullOrEmpty())"未导出" else "已导出",{model.navigate(Screen.BACKUP)})
             HorizontalDivider();SettingRow(Icons.Default.Download,"导出账本","CSV",{model.navigate(Screen.EXPORT)})
             HorizontalDivider();SettingRow(Icons.Default.DeleteOutline,"回收站","${recycledEntries(state.book).size+state.book.loans.count {it.deletedAt!=null}} 笔",{model.navigate(Screen.TRASH)})
         } }
         item {Section("隐私")}
-        item {Panel {SettingRow(Icons.Default.Lock,"隐私锁",trailing={Switch(checked=model.pinEnabled,onCheckedChange={model.togglePin()},enabled=!model.busy)});Text("开启后，返回后台自动锁定；未解锁仅可查看首页。",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)} }
+        item {Panel {SettingRow(Icons.Default.Lock,"隐私锁",trailing={Switch(checked=model.pinEnabled,onCheckedChange={model.togglePin()},enabled=!model.busy,modifier=Modifier.semantics {contentDescription="隐私锁"})});Text("开启后，返回后台自动锁定；未解锁仅可查看首页。",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)} }
         item {Section("店铺")}
         item {Panel {SettingRow(Icons.Default.Store,"店铺名称",state.book.name,{model.edit("name")})} }
         item {Section("提醒")}

@@ -78,6 +78,7 @@ object BookCodec {
             val d=r.get("day");require(d is Number && d.toDouble()==d.toInt().toDouble() && d.toInt() in 1..31) { "提醒日期无效" }
             Reminder(id(r.get("id")),text(r.get("name"),30),kind,amount(r.get("cents")),d.toInt(),deleted(r))
         }
+        require(!o.has("categories") || o.get("categories") is JSONArray) { "备份分类格式无效" }
         val array=o.optJSONArray("categories") ?: JSONArray();require(array.length()<=30)
         val categories=(0 until array.length()).map { text(array.get(it),16) };require(categories.distinct().size==categories.size)
         return Book(text(o.get("name"),30),entries,loans,reminders,categories).also { require(bookJson(it).toString().toByteArray().size<=1_500_000) { "账本超过容量" } }
@@ -91,7 +92,7 @@ object BookCodec {
     fun backupJson(b: Backup): String = JSONObject().put("format","xiaodian-ledger-backup").put("version",1).put("createdAt",b.createdAt).put("book",bookJson(b.book)).put("preferences",JSONObject().put("theme",b.preferences.theme).put("fontSize",b.preferences.fontSize)).toString()
     fun parseBackup(content: String): Backup {
         require(content.toByteArray().size<=2_000_000) { "备份最多支持 2 MB" }
-        val o=JSONObject(content);require(o.optString("format")=="xiaodian-ledger-backup" && o.optInt("version")==1) { "请选择小店账本的完整 JSON 备份" }
+        val o=JSONObject(content);require(o.optString("format")=="xiaodian-ledger-backup" && o.get("version") is Number && (o.get("version") as Number).toDouble()==1.0) { "请选择小店账本的完整 JSON 备份" }
         val p=o.getJSONObject("preferences");val theme=text(p.get("theme"),10);val font=text(p.get("fontSize"),10)
         require(theme in listOf("light","dark") && font in FONT_NAMES) { "备份显示设置无效" }
         return Backup(parseBook(o.getJSONObject("book")),DisplayPrefs(theme,font),timestamp(o.get("createdAt")))

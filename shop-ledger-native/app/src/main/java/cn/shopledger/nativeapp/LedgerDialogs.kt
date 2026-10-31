@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -78,8 +79,8 @@ import androidx.compose.ui.window.DialogProperties
     var pin by remember(mode) {mutableStateOf("")};var repeat by remember(mode) {mutableStateOf("")}
     LaunchedEffect(model.pinError) {if(model.pinError.isNotEmpty())pin=""}
     CompactDialog(if(mode=="setup")"设置隐私密码" else if(mode=="disable")"关闭隐私锁" else "解锁账本",model::cancelPin,footer={
-        Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {if(model.pinError.isNotEmpty())Text(model.pinError,color=Expense,fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {OutlinedButton(onClick=model::cancelPin,enabled=!model.busy,modifier=Modifier.weight(1f)) {Text("取消")};Button(onClick={model.submitPin(pin,repeat)},enabled=!model.busy,modifier=Modifier.weight(1f)) {Text(if(model.busy)"请稍等…" else if(mode=="setup")"开启" else if(mode=="disable")"确认关闭" else "解锁")}}}
-    ) {
+        Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {if(model.pinError.isNotEmpty())Text(model.pinError,color=Expense,fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {OutlinedButton(onClick=model::cancelPin,enabled=!model.busy,modifier=Modifier.weight(1f)) {Text("取消")};Button(onClick={model.submitPin(pin,repeat)},enabled=!model.busy,modifier=Modifier.weight(1f).testTag("pin-confirm")) {Text(if(model.busy)"请稍等…" else if(mode=="setup")"开启" else if(mode=="disable")"确认关闭" else "解锁")}}}
+    }) {
         Text(if(mode=="setup")"设置 6 位数字密码。请记住密码，密码不随账本备份导出。" else "锁定时仅可查看首页，输入当前 6 位数字密码后继续。",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(pin,{pin=it.filter {c->c in '0'..'9'}.take(6)},Modifier.fillMaxWidth(),label={Text("6位数字密码")},singleLine=true,visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword))
         if(mode=="setup")OutlinedTextField(repeat,{repeat=it.filter {c->c in '0'..'9'}.take(6)},Modifier.fillMaxWidth(),label={Text("再次输入密码")},singleLine=true,visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword))

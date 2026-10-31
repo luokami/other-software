@@ -28,7 +28,7 @@ android {
         }
     }
     buildTypes {
-        release { signingConfig = signingConfigs.getByName("existing"); isMinifyEnabled = false }
+        release { if(file("$signingDir/shop-ledger.p12").exists())signingConfig = signingConfigs.getByName("existing"); isMinifyEnabled = false }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
@@ -58,5 +58,6 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

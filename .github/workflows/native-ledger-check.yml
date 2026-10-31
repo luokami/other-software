@@ -9,7 +9,7 @@ permissions:
 jobs:
   native:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: shop-ledger-native
@@ -20,7 +20,28 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Compile and test native ledger
-        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain
+        run: ./gradlew :app:testDebugUnitTest :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise migration and native UI on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          working-directory: shop-ledger-native
+          disable-animations: true
+          script: |
+            adb shell settings put secure show_ime_with_hard_keyboard 1
+            ledger_test_status=0
+            ./gradlew :app:connectedDebugAndroidTest --console=plain || ledger_test_status=$?
+            mkdir -p app/build/outputs/ui-screenshots
+            adb pull /sdcard/Android/data/cn.shopledger.offline/files/. app/build/outputs/ui-screenshots/ || true
+            exit "$ledger_test_status"
       - uses: actions/upload-artifact@v5
         if: always()
         with:
@@ -28,4 +49,7 @@ jobs:
           path: |
             shop-ledger-native/app/build/reports/tests/
             shop-ledger-native/app/build/outputs/apk/debug/*.apk
+            shop-ledger-native/app/build/outputs/apk/release/*.apk
+            shop-ledger-native/app/build/reports/androidTests/
+            shop-ledger-native/app/build/outputs/ui-screenshots/
             shop-ledger-native/app/build/compat-backup.json
