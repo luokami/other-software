@@ -1,0 +1,7 @@
+.gradle/
+**/build/
+local.properties
+signing/
+*.p12
+*.jks
+password.txt
